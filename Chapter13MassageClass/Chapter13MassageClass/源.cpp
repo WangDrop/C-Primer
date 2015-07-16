@@ -11,9 +11,15 @@ public:
 	Message(const Message & );
 	Message & operator=(const Message &);
 	~Message();
+	void moveFolders(Message * m);
 	void save(Folder &);
 	void remove(Folder &);
 	friend void swap(Message & lhs, Message & rhs);
+	Message::Message(Message && m) :contents(std::move(m.contents))
+	{
+		moveFolders(&m);
+	}
+	Message & operator=(Message && msg);
 private:
 	string contents;
 	set <Folder*> folders;
@@ -25,15 +31,31 @@ class Folder{
 	friend class Message;
 public:
 	Folder(const Folder & );
+	Folder(Folder && f);
+	Folder & operator=(Folder && f);
 	Folder& operator=(const Folder &);
 	void addMessage(Message &);
 	void removeMessage(Message &);
 	friend void swap(Folder & lhs, Folder & rhs);
+	void moveMessage(Folder * folder);
 	~Folder();
+	
 private:
 	set<Message*> messages;
+	void removeFromMessage();
+	void addToMessage(const Folder & );
 };
 
+
+void Message::moveFolders(Message * m)
+{
+	folders = std::move(m->folders);
+	for (auto p : m->folders){
+		p->removeMessage(*m);
+		p->addMessage(*this);
+	}
+	m->folders.clear();
+}
 
 /**
 下面这部分是
@@ -114,6 +136,15 @@ void swap(Message & lhs, Message & rhs){
 
 }
 
+Message & Message::operator=(Message && msg)
+{
+	if (this != &msg){
+		removeFromFolders(*this);
+		contents = msg.contents;
+		moveFolders(&msg);
+	}
+	return *this;
+}
 /*
 下面是Folder
 部分
@@ -177,4 +208,44 @@ void swap(Folder & lhs, Folder & rhs)
 	}
 }
 
+void Folder::moveMessage(Folder * folder)
+{
+	messages = std::move(folder->messages);
+	for (auto p : messages){
+		p->remove(*folder);
+		p->save(*this);
+	}
+	folder->messages.clear();
+}
 
+
+Folder::Folder(Folder && folder)
+{
+	moveMessage(&folder);
+}
+
+void Folder::removeFromMessage()
+{
+	for (auto p : messages){
+		p->remove(*this);
+	}
+	messages.clear();
+}
+
+void Folder::addToMessage(const Folder & f)
+{
+	for (auto p : f.messages){
+		p->save(*this);
+	}
+}
+
+Folder & Folder:: operator=(Folder && folder)
+{
+	if (this != &folder){
+		removeFromMessage();
+		addToMessage(folder);
+		messages = std::move(folder.messages);
+		folder.messages.clear();
+	}
+	return *this;
+}
