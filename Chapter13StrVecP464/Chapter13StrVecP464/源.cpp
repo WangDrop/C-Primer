@@ -15,6 +15,7 @@ public:
 	StrVec(StrVec && s)noexcept;
 	StrVec &operator=(StrVec && rhs)noexcept;
 	StrVec & operator=(const StrVec & rhs);
+	StrVec & operator=(initializer_list<string> & li);
 	~StrVec();
 	void pushBack(const string & );
 	void popBack();
@@ -22,6 +23,11 @@ public:
 	size_t capacity()const { return last - elements; }
 	string *begin()const{ return elements; }
 	string *end()const{ return firstFree; }
+	void push_back(const string & );
+	void push_back(string &&);
+	string & operator[](size_t n);
+	const string &operator[](size_t n)const;
+
 private:
 	static allocator<string> alloc;
 	void checkAlloc(){
@@ -135,4 +141,37 @@ void StrVec::reallocate()
 	elements = newdata;
 	firstFree = elem;
 	last = elements + newcapacity;
+}
+
+
+void StrVec::push_back(const string & str)
+{
+	checkAlloc();
+	alloc.construct(firstFree++, str);
+}
+
+void StrVec::push_back(string && str)
+{
+	checkAlloc();
+	alloc.construct(firstFree++, std::move(str));
+}
+
+StrVec & StrVec::operator=(initializer_list<string> & li)
+{
+	auto data = allocCopy(li.begin(), li.end());
+	free();
+	elements = data.first;
+	firstFree = data.second;
+	last = elements + li.size();
+}
+
+
+string & StrVec::operator[](size_t n)
+{
+	return *(elements + n);
+}
+
+const string & StrVec::operator[](size_t n)const
+{
+	return *(elements + n);
 }

@@ -19,11 +19,23 @@ public:
 	string & back();
 	string front()const;
 	string back()const;
+	friend bool operator==(const StrBlob & lhs, const StrBlob & rhs);
+	friend bool operator!=(const StrBlob & lhs, const StrBlob & rhs);
 private:
 	shared_ptr<vector<string>> data;
 	void check(size_type i, const string & msg)const;
 
 };
+
+bool operator==(const StrBlob & lhs, const StrBlob & rhs)
+{
+	return *lhs.data == *rhs.data;
+}
+
+bool operator!=(const StrBlob & lhs, const StrBlob & rhs)
+{
+	return !(lhs == rhs);
+}
 
 StrBlob::StrBlob(initializer_list<string> il)
 	:data(make_shared<vector<string>>(il))

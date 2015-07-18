@@ -7,9 +7,12 @@ const unsigned long EXCH_MAX_SQ_LEN = 8192;
 const unsigned long RET_FAIL = 0x0001;
 const unsigned long OXID_MAX = 0x00FF;
 const unsigned long XID_UNKNOWN = 0xFFFF;
+const unsigned long FC_MAX_LEN = 2048;
+const unsigned short ZERO = 0;
 enum exch_status{ FC_EXCH_FREE, FC_EXCH_BUSY, FC_EX_SQ_ACTIVE };
 enum port_status{ PORT_OK, PORT_UNINIT};
 enum seqStatus{SEQ_IDLE, FC_SEQ_SENDING};
+
 
 struct fcSeq{
 	UINT8 seqid;
@@ -20,7 +23,15 @@ struct fcSeq{
 	UINT16 snd_cnt;
 	seqStatus status = SEQ_IDLE;
 };
+fc_frame frameTable[1000];
 
+//typedef struct fc_frame{
+//	UINT8 *data; /*  include frame_header and data_field  */
+//	UINT32 len; /*  fc frame header length and data field, not include sof and fc_crc and eof  */
+//	UINT32 fr_sof;
+//	UINT32 fr_eof;
+//	UINT32 fr_crc;
+//} fc_frame;
 
 struct fcExch{
 	UINT16 xid;
@@ -70,5 +81,7 @@ struct fc_exch_snd_data {
 };
 
 bool fc_exch_alloc(struct fcExch * exchP);
-
+void fc_exch_alloc(struct fcExch * ep, LocalPortStatus * lps);
+static UINT32 ntoh24(const UINT8 *p);
+static struct fcSeq *fc_seq_alloc(struct fcExch * ep, UINT8 seq_id);
 #endif
