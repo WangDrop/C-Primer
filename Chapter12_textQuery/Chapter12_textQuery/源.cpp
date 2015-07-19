@@ -33,7 +33,20 @@ QueryResult TextQuery::query(const string & str) const
 		return QueryResult(str, file, nodata);
 }
 
+QueryResult::iter QueryResult::begin()const
+{
+	return lines->begin();
+}
 
+QueryResult::iter QueryResult::end()const
+{
+	return lines->end();
+}
+
+shared_ptr<vector<string>> QueryResult::get_file()const
+{
+	return shared_ptr<vector<string>>(make_shared<vector<string>>(file));
+}
 
 ostream &  print(ostream & os, const QueryResult & qur)
 {
@@ -45,6 +58,40 @@ ostream &  print(ostream & os, const QueryResult & qur)
 	return os;
 
 }
+
+QueryResult	OrQuery::eval(const TextQuery & text)const
+{
+	auto right = rhs.eval(text), left = lhs.eval(text);
+	auto ret_lines =
+		make_shared<set<line_no>>(left.begin(), right.end());
+	ret_lines->insert(right.begin(), right.end());
+	return QueryResult(rep(), left.get_file(), ret_lines);
+}
+
+QueryResult AndQuery::eval(const TextQuery & text)const
+{
+	auto right = rhs.eval(text), left = lhs.eval(text);
+	auto ret_lines =
+		make_shared<set<line_no>>(left.begin(), left.end());
+	ret_lines->insert(right.begin(), right.end());
+	return QueryResult(rep(), left.get_file(), ret_lines);
+}
+
+
+QueryResult NotQuery::eval(const TextQuery & text)const
+{
+	auto result = query.eval(text);
+	auto ret_lines = make_shared<set<line_no>>();
+	auto sz = result.get_file()->size();
+	auto beg = result.begin(), ed = result.end();
+	for (size_t n = 0; n != sz; ++n){
+		if (beg == ed || *beg != n)
+			ret_lines->insert(n);
+		else
+			++beg;//注意，这里处理的很精妙
+	}
+}
+
 int main()
 {
 	ifstream infile("C:\\Users\\WC\\Documents\\Visual Studio 2013\\Projects\\Chapter12_textQuery\\Chapter12_textQuery\\sample.txt");

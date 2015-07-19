@@ -1,12 +1,85 @@
 #ifndef FC_2_H
 #define FC_2_H
+
+typedef unsigned int UINT32;
+typedef unsigned short UINT16;
+typedef unsigned char UINT8;
+const unsigned int EXCH_MAX_SQ_LEN = 8192;
+const unsigned int RET_FAIL = 0x0001;
+const unsigned int OXID_MAX = 0x00FF;
+const unsigned int OXID_MIN = 0x0000;
+const unsigned int XID_UNKNOWN = 0xFFFF;
+//const unsigned int LOW_EIGHT = 0x00FF;
+const unsigned int RX_DESC_NUM_APP = 10000;
+const unsigned int FC_MAX_LEN = 2048;
+const unsigned int ZERO = 0x0000;
+enum exchStatus{ FC_EXCH_FREE, FC_EXCH_BUSY };
+enum portStatus{ PORT_RDY, PORT_UNINIT };
+enum seqStatus{ FC_SEQ_FREE, FC_SEQ_SENDING };
+enum isNewExch{ EXCH_NEW, EXCH_OLD };
+
+
+/*全局变量*/
 bool NEW_EXCH = true;
+UINT32 seqNum = 0;
+
+/*本地端口的信息*/
+struct LocalPortStatus{
+	UINT16        min_xid = 0;
+	UINT16        max_xid = OXID_MAX;
+	UINT16        next_id = 0;
+	struct fcExch * exchPointer;
+	portStatus status;
+	isNewExch newExchange;
+};
+LocalPortStatus port[2];
+
+/*Exchange结构体*/
+struct fcExch{
+	UINT16 xid;
+	UINT16 oxid;
+	UINT16 rxid;
+	//	UINT16 initializerID;
+	struct PortID  sid;
+	struct PortID  did;
+	UINT32 seqid;
+	struct fcSeq  *seq;
+	void * configPointer;		/*Information of the data*/
+	exchStatus status = FC_EXCH_FREE;
+};
+fcExch exchangesPort0[OXID_MAX];
+fcExch exchangesPort1[OXID_MAX];
+
+/*Sequence结构体*/
+struct fcSeq{
+	UINT8 seqid;
+	UINT16 seq_cnt;
+	fcExch * exchangePointer;
+	seqStatus status = FC_SEQ_FREE;
+};
+fcSeq fcSequence[100];
+
+/*将要发送的数据的结构体*/
+struct fc_exch_snd_data {
+	void *configPointer;  /*Information of the data*/
+	UINT32  len;          /*length of payload*/
+};
+
+/*端口的相关信息*/
 struct PortID
 {
 	unsigned char id0;
 	unsigned char id1;
 	unsigned char id2;
 };
+
+bool fc_exch_alloc(struct fcExch * exchP);
+void fc_exch_alloc(struct fcExch * ep, LocalPortStatus * lps);
+static UINT32 ntoh24(const UINT8 *p);
+static struct fcSeq *fc_seq_alloc(struct fcExch * ep, UINT8 seq_id);
+UINT32 fc_exch_init(LocalPortStatus * localPortStatus);
+
+
 struct 	FC_1553_config
 {
 	unsigned char    r_ctl;
@@ -37,55 +110,8 @@ struct 	FC_1553_config
 	unsigned int     framelen;
 };
 
-typedef unsigned int UINT32;
-typedef unsigned short UINT16;
-typedef unsigned char UINT8;
-const unsigned int EXCH_MAX_SQ_LEN = 8192;
-const unsigned int RET_FAIL = 0x0001;
-const unsigned int OXID_MAX = 0x00FF;
-const unsigned int OXID_MIN = 0x0000;
-const unsigned int XID_UNKNOWN = 0xFFFF;
-const unsigned int LOW_EIGHT = 0x00FF;
-const unsigned int RX_DESC_NUM_APP = 10000;
-const unsigned int FC_MAX_LEN = 2048;
-const unsigned short ZERO = 0;
-enum exch_status{ FC_EXCH_FREE, FC_EXCH_BUSY, FC_EX_SQ_ACTIVE };
-enum port_status{ PORT_RDY, PORT_UNINIT };
-enum seqStatus{ FC_SEQ_IDLE, FC_SEQ_SENDING };
-enum IS_NEW_EXCH{ EXCH_NEW, EXCH_OLD };
 
 
-struct fcSeq{
-	UINT8 seqid;
-	UINT16 seq_cnt;
-	fcExch * exchangePointer;
-	seqStatus status = FC_SEQ_IDLE;
-};
-fcSeq fcSequence[100];
-
-struct fcExch{
-	UINT16 xid;
-	UINT16 oxid;
-	UINT16 rxid;
-	//	UINT16 initializerID;
-	struct PortID  sid;
-	struct PortID  did;
-	UINT32 seqid;
-	struct fcSeq  *seq;
-	void * configPointer;		/*Information of the data*/
-	exch_status status = FC_EXCH_FREE;
-};
-
-/*本地端口的信息*/
-struct LocalPortStatus{
-	UINT16        min_xid = 0;
-	UINT16        max_xid = OXID_MAX;
-	UINT16        next_id = 0;
-	struct fcExch * exchPointer;
-	port_status status;
-	IS_NEW_EXCH newExchange;
-};
-LocalPortStatus port[2];
 
 /*struct fc_frame_header {
 	UINT8          fh_r_ctl;	//routing control
@@ -106,17 +132,6 @@ LocalPortStatus port[2];
 	UINT32        fh_parm_offset;	// parameter or relative offset
 };*/
 
-struct fc_exch_snd_data {
-	void *configPointer;  /*Information of the data*/
-	UINT32  len;          /*length of payload*/
-};
 
-fcExch exchangesPort0[OXID_MAX];
-fcExch exchangesPort1[OXID_MAX];
 
-bool fc_exch_alloc(struct fcExch * exchP);
-void fc_exch_alloc(struct fcExch * ep, LocalPortStatus * lps);
-static UINT32 ntoh24(const UINT8 *p);
-static struct fcSeq *fc_seq_alloc(struct fcExch * ep, UINT8 seq_id);
-UINT32 fc_exch_init(LocalPortStatus * localPortStatus);
 #endif

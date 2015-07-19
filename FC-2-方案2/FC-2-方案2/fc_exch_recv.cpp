@@ -4,6 +4,9 @@ fcExch tmpExch;
 fcSeq tmpSeq;
 UINT32 fc_exch_recv(UINT8 * status, UINT32 * delay, UINT32 * buf_offset, UINT32 * len, LocalPortStatus * lps)
 {
+	if ((*lps).status == PORT_UNINIT){
+		fc_exch_init(lps);
+	}
 	fcExch * tmpEp = &tmpExch;
 	static fcExch * ep = nullptr;
 	//UINT32 totalLenth = 0;
@@ -22,12 +25,12 @@ UINT32 fc_exch_recv(UINT8 * status, UINT32 * delay, UINT32 * buf_offset, UINT32 
 	}
 	tmpEp->sid = *((PortID *)(ptr + 1));	//将did转换成远端的sid
 	tmpEp->did = *((PortID *)(ptr + 5));
-	tmpEp->seqid = ZERO;//*((UINT8 *)(ptr + 12));
+	tmpEp->seqid = *((UINT8 *)(ptr + 12)) + 1;	//seq_id还是上面的seq_id,不用清成0
 	tmpEp->configPointer = lps;
 	tmpEp->seq;
 	tmpEp->status = FC_EXCH_BUSY;
-	port[1].exchPointer = tmpEp;
-	port[1].status = PORT_RDY;
+	*port[1].exchPointer = *tmpEp;
+//	port[1].status = PORT_RDY;
 	port[1].newExchange = EXCH_OLD;
 	return 0;
 }
@@ -48,6 +51,7 @@ UINT32 fc_frame_recv(UINT8 * status, UINT32 * delay, UINT32 * buf_offset, UINT32
 	unsigned char* ptr = ptrdata1 + buf_offset;
 	sp->seq_cnt = (UINT16)(ptr + 14);
 	sp->seqid = (UINT8)(ptr + 12);
+	sp->status = FC_SEQ_SENDING;
 	sp->exchangePointer = nullptr;
 }
 
@@ -86,7 +90,7 @@ int get_current_rx_status(unsigned char *status, unsigned int *delay, unsigned i
 UINT32 get_free_xid(fcExch * exchangePointer)
 {
 	for (int i = 0; i < OXID_MAX; i++){
-		if (exchanges[i].status == FC_EXCH_FREE){
+		if (exchangesPort1[i].status == FC_EXCH_FREE && i != exchangePointer->oxid){
 			exchangePointer->xid = i;
 			return 0;
 		}
