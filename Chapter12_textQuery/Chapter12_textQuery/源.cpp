@@ -1,43 +1,8 @@
 #include <iostream>
 #include <sstream>
 #include <fstream>
-#include <vector>
-#include <memory>
-#include <vector>
-#include <string>
-#include <map>
-#include <set>
-
+#include "text_query.h"
 using namespace std;
-
-class QueryResult;
-class TextQuery{
-public:
-	typedef vector<string> ::size_type line_no;
-	TextQuery(ifstream & );
-	QueryResult query(const string &)const;
-private:
-	shared_ptr<vector<string>> file;
-	map < string, shared_ptr<set<line_no>> > wm;
-};
-
-
-class QueryResult
-{
-	friend ostream &  print(ostream & os, const QueryResult & qur);
-public:
-	typedef vector<string>::size_type line_no;
-
-	//	QueryResult();
-	QueryResult(const string & s,
-		shared_ptr<vector<string>> f, shared_ptr<set<line_no>> l)
-		:str(s), file(f), lines(l){}
-private:
-	string str;
-	shared_ptr<vector<string>> file;
-	shared_ptr<set<line_no>> lines;
-};
-
 
 TextQuery::TextQuery(ifstream & ifile)
 	:file(new vector<string>)
@@ -46,19 +11,14 @@ TextQuery::TextQuery(ifstream & ifile)
 	while (getline(ifile, temp))
 	{
 		file->push_back(temp);
-	}
-	line_no line_count = 1;
-	for (auto it = file->begin(); it != file->end(); ++it, ++line_count)
-	{
-		cout << *it << endl;
-		istringstream iss(*it);
+		int n = file->size() - 1;
+		istringstream iss(temp);
 		string tmp;
-		while (iss >> tmp)
-		{
+		while (iss >> tmp){
 			auto & lines = wm[tmp];
 			if (!lines)
 				lines.reset(new set<line_no>);
-			lines->insert(line_count);
+			lines->insert(n);
 		}
 	}
 }
@@ -72,8 +32,6 @@ QueryResult TextQuery::query(const string & str) const
 	else
 		return QueryResult(str, file, nodata);
 }
-
-
 
 
 

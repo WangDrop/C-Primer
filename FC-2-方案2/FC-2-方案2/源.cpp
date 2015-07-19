@@ -2,7 +2,7 @@
 UINT32 seqNum = 0;
 
 
-UINT32 fc_exch_send(struct fc_exch_snd_data *data, LocalPortStatus * lps)
+UINT32 fc_exch_send(struct fc_exch_snd_data *data, LocalPortStatus * lps)//这里传入的应该是port[0]的status。
 {
 	if ((*lps).status == PORT_UNINIT){
 		fc_exch_init(lps);
@@ -11,34 +11,37 @@ UINT32 fc_exch_send(struct fc_exch_snd_data *data, LocalPortStatus * lps)
 	static struct fcSeq *sp = nullptr;
 	if ((*lps).newExchange == EXCH_NEW){
 		(*lps).newExchange = EXCH_OLD;//这个在点击交互按钮的时候应该把它设置成true
-		fc_exch_alloc(ep, lps);
+		fc_exch_alloc(ep, lps);		  //在1553中重新选择交互模式的里面在把它清成0；
 		if (!ep){
 			return RET_FAIL;/*exch分配失败*/
 		}
 		ep->oxid = ep->xid;
 		ep->seqid++;
-		sp = ep->seq;
 		ep->status = FC_EX_SQ_ACTIVE;
 		sp->status = FC_SEQ_SENDING;
 	}
 	else{
+		ep = lps->exchPointer;
 		sp = fc_seq_alloc(ep);
 		ep->seqid++;
 		ep->seq = sp;
-		sp = ep->seq;
 		ep->status = FC_EX_SQ_ACTIVE;
 		sp->status = FC_SEQ_SENDING;
 	}
 	fc_seq_send(sp, data);
 }
 
-bool fc_exch_init(LocalPortStatus * localPortStatus)
+UINT32 fc_exch_init(LocalPortStatus * localPortStatus)
 {
 	LocalPortStatus lpStatus;
-	lpStatus.exchPointer = 
-		;
+	lpStatus.exchPointer = exchangesPort0;
 	for (UINT32 i = 0; i < OXID_MAX; i++){
+		lpStatus.exchPointer[i].oxid = ZERO;
 		lpStatus.exchPointer[i].rxid = XID_UNKNOWN;
+		lpStatus.exchPointer[i].status = FC_EXCH_FREE;
+		lpStatus.exchPointer[i].seqid = ZERO;
+		lpStatus.exchPointer[i].seq = nullptr;
+		lpStatus.exchPointer[i].configPointer = nullptr;
 		lpStatus.exchPointer[i].status = FC_EXCH_FREE;
 	}
 	(*localPortStatus).status = PORT_RDY;
@@ -47,7 +50,7 @@ bool fc_exch_init(LocalPortStatus * localPortStatus)
 
 void fc_exch_alloc(struct fcExch * ep, LocalPortStatus * lps)
 {
-	while (!(lps->exchPointer[lps->next_id].status == FC_EXCH_FREE)){
+	while (lps->exchPointer[lps->next_id].status != FC_EXCH_FREE){	//找到第一个free的xid
 		lps->next_id = lps->next_id == OXID_MAX ? OXID_MIN : lps->next_id + 1;
 	}	//在接收或者是交换完成的时候需要将上面给的FC_EXCH_FREE重置
 	ep = &lps->exchPointer[lps->next_id];
@@ -55,13 +58,12 @@ void fc_exch_alloc(struct fcExch * ep, LocalPortStatus * lps)
 	ep->rxid = XID_UNKNOWN;
 	lps->exchPointer[lps->next_id].status = FC_EXCH_BUSY;
 	ep->seqid = 0;
-	ep->seq = fc_seq_alloc(ep, ep->seqid);
+	ep->seq = fc_seq_alloc(ep);
 	lps->next_id = lps->next_id == OXID_MAX ? 0 : lps->next_id + 1;
 }
 
-static struct fcSeq *fc_seq_alloc(struct fcExch * ep)
+static struct fcSeq * fc_seq_alloc(struct fcExch * ep)
 {
-
 	struct fcSeq * sp = (seqNum == 100) ? &fcSequence[(seqNum++) % 100] : &fcSequence[seqNum++];
 	sp->seqid = ep->seqid;
 	sp->seq_cnt = 0;
@@ -107,9 +109,4 @@ void fc_frame_send(fcSeq * seqPointer, void * configPointer)
 	else if{
 
 	}
-}
-
-static UINT32 ntoh24(const UINT8 *p)
-{
-	return (p[0] << 16) | (p[1] << 8) | p[2];
 }

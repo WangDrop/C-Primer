@@ -52,14 +52,14 @@ const unsigned short ZERO = 0;
 enum exch_status{ FC_EXCH_FREE, FC_EXCH_BUSY, FC_EX_SQ_ACTIVE };
 enum port_status{ PORT_RDY, PORT_UNINIT };
 enum seqStatus{ FC_SEQ_IDLE, FC_SEQ_SENDING };
-enum newExch{EXCH_NEW, EXCH_OLD};
+enum IS_NEW_EXCH{ EXCH_NEW, EXCH_OLD };
 
 
 struct fcSeq{
 	UINT8 seqid;
 	UINT16 seq_cnt;
 	fcExch * exchangePointer;
-	seqStatus status = SEQ_IDLE;
+	seqStatus status = FC_SEQ_IDLE;
 };
 fcSeq fcSequence[100];
 
@@ -83,39 +83,40 @@ struct LocalPortStatus{
 	UINT16        next_id = 0;
 	struct fcExch * exchPointer;
 	port_status status;
-	newExch newExchange;
+	IS_NEW_EXCH newExchange;
 };
 LocalPortStatus port[2];
 
-struct fc_frame_header {
-	UINT8          fh_r_ctl;	/* routing control */
-	UINT8          fh_d_id[3];	/* Destination ID */
+/*struct fc_frame_header {
+	UINT8          fh_r_ctl;	//routing control
+	UINT8          fh_d_id[3];	// Destination ID 
 
-	UINT8          fh_cs_ctl;	/* class of service control / pri */
-	UINT8          fh_s_id[3];	/* Source ID */
+	UINT8          fh_cs_ctl;	// class of service control / pri 
+	UINT8          fh_s_id[3];	// Source ID 
 
-	UINT8          fh_type;		/* see enum fc_fh_type below */
-	UINT8          fh_f_ctl[3];	/* frame control */
+	UINT8          fh_type;		// see enum fc_fh_type below
+	UINT8          fh_f_ctl[3];	// frame control
 
-	UINT8          fh_seq_id;	/* sequence ID */
-	UINT8          fh_df_ctl;	/* data field control */
-	UINT16        fh_seq_cnt;	/* sequence count */
+	UINT8          fh_seq_id;	// sequence ID 
+	UINT8          fh_df_ctl;	// data field control 
+	UINT16        fh_seq_cnt;	// sequence count
 
-	UINT16        fh_ox_id;		/* originator exchange ID */
-	UINT16        fh_rx_id;		/* responder exchange ID */
-	UINT32        fh_parm_offset;	/* parameter or relative offset */
-};
+	UINT16        fh_ox_id;		// originator exchange ID
+	UINT16        fh_rx_id;		// responder exchange ID
+	UINT32        fh_parm_offset;	// parameter or relative offset
+};*/
 
 struct fc_exch_snd_data {
 	void *configPointer;  /*Information of the data*/
 	UINT32  len;          /*length of payload*/
 };
 
-fcExch exchanges[OXID_MAX];
+fcExch exchangesPort0[OXID_MAX];
+fcExch exchangesPort1[OXID_MAX];
 
 bool fc_exch_alloc(struct fcExch * exchP);
 void fc_exch_alloc(struct fcExch * ep, LocalPortStatus * lps);
 static UINT32 ntoh24(const UINT8 *p);
 static struct fcSeq *fc_seq_alloc(struct fcExch * ep, UINT8 seq_id);
-bool fc_exch_init(LocalPortStatus * localPortStatus);
+UINT32 fc_exch_init(LocalPortStatus * localPortStatus);
 #endif

@@ -1,62 +1,44 @@
 #include <iostream>
 #include "FC_2.h"
+fcExch tmpExch;
+fcSeq tmpSeq;
 UINT32 fc_exch_recv(UINT8 * status, UINT32 * delay, UINT32 * buf_offset, UINT32 * len, LocalPortStatus * lps)
 {
-	fcExch * tmpEp = new fcExch;
+	fcExch * tmpEp = &tmpExch;
 	static fcExch * ep = nullptr;
-	UINT32 totalLenth = 0;
+	//UINT32 totalLenth = 0;
 	fc_seq_recv(status, delay, buf_offset, len, tmpEp);
-	totalLenth += *len;
-	while ((tmpEp->seq->status == FC_SEQ_SENDING)){
+	//totalLenth += *len;
+	/*while ((tmpEp->seq->status == FC_SEQ_SENDING)){
 		fc_seq_recv(status, delay, buf_offset, len, tmpEp);
 		totalLenth += *len;
-	}
-	*len = totalLenth;
+	}*/
+	//*len = totalLenth;
 	unsigned char* ptr = ptrdata1 + buf_offset;
 	tmpEp->oxid = *((UINT16 *)(ptr + 16));
-	get_free_xid(tmpEp);
-	tmpEp->rxid = tmpEp->xid;
+	if (tmpEp->rxid == XID_UNKNOWN){
+		get_free_xid(tmpEp);
+		tmpEp->rxid = tmpEp->xid;
+	}
 	tmpEp->sid = *((PortID *)(ptr + 1));	//将did转换成远端的sid
 	tmpEp->did = *((PortID *)(ptr + 5));
-	tmpEp->seqid = *((UINT8 *)(ptr + 12));
+	tmpEp->seqid = ZERO;//*((UINT8 *)(ptr + 12));
 	tmpEp->configPointer = lps;
+	tmpEp->seq;
 	tmpEp->status = FC_EXCH_BUSY;
-	
-	
-	if ((*lps).status == PORT_UNINIT){
-		fc_exch_init(lps);
-	}
-	if ((*lps).newExchange == EXCH_NEW){
-		(*lps).newExchange = EXCH_OLD;//这个在点击交互按钮的时候应该把它设置成true
-		fc_exch_alloc(ep, lps);
-		if (!ep){
-			return RET_FAIL;/*exch分配失败*/
-		}
-		*ep = *tmpEp;
-		delete tmpEp;
-		ep->seqid++;
-		ep->status = FC_EX_SQ_ACTIVE;
-		ep->seq->status = FC_SEQ_SENDING;
-	}
-	else{
-		sp = fc_seq_alloc(ep);	//写到这里了，但是暂时还有很多的细节没有完成。
-		*ep = *tmpEp;
-		delete tmpEp;
-		ep->seqid++;
-		ep->status = FC_EX_SQ_ACTIVE;
-		ep->seq->status = FC_SEQ_SENDING;
-	}
-
-	
-	fc_seq_send(sp, data);
+	port[1].exchPointer = tmpEp;
+	port[1].status = PORT_RDY;
+	port[1].newExchange = EXCH_OLD;
+	return 0;
 }
 
 UINT32 fc_seq_recv(UINT8 * status, UINT32 * delay, UINT32 * buf_offset, UINT32 * len, fcExch * ep)
 {
-	fcSeq * sp = new fcSeq;	 //这个当发送完成之后应该记得要去释放他。
+	fcSeq * sp = &tmpSeq;	 //这个当发送完成之后应该记得要去释放他。
 	unsigned char* ptr = ptrdata1 + buf_offset;
 	fc_frame_recv(status, delay, buf_offset, len, sp);
 	ep->seq = sp;
+	sp->exchangePointer = ep;
 	return 0;
 }
 
