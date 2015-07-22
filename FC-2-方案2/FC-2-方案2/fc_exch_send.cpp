@@ -1,27 +1,26 @@
 #include "FC_2.h"
-
-
-
-UINT32 fc_exch_send(struct fc_exch_snd_data *data, LocalPortStatus * lps)//ÕâÀï´«ÈëµÄÓ¦¸ÃÊÇport[0]µÄstatus¡£
+UINT32 fc_exch_send(struct fc_exch_snd_data * data, LocalPortStatus * lps)//ÕâÀï´«ÈëµÄÓ¦¸ÃÊÇport[0]µÄstatus¡£
 {
 	if ((*lps).status == PORT_UNINIT){
-		fc_exch_init(lps);
+		fc_port_init(lps);
 	}
 	static struct fcExch *ep = nullptr;
 	static struct fcSeq *sp = nullptr;
 	if ((*lps).newExchange == EXCH_NEW){
 		(*lps).newExchange = EXCH_OLD;//Õâ¸öÔÚµã»÷½»»¥°´Å¥µÄÊ±ºòÓ¦¸Ã°ÑËüÉèÖÃ³Étrue
 		fc_exch_alloc(ep, lps);		  //ÔÚ1553ÖĞÖØĞÂÑ¡Ôñ½»»¥Ä£Ê½µÄÀïÃæÔÚ°ÑËüÇå³É0£»
-		if (!ep || !sp){
+		if (!ep || !ep->fcSequence[seqNum]){
 			return RET_FAIL;/*exchÒÔ¼°seq·ÖÅäÊ§°Ü*/
 		}
+		//sp = ep->seq;
+		sp = ep->fcSequence[seqNum];
 		ep->oxid = ep->xid;
 		ep->seqid++;
 		ep->status = FC_EXCH_BUSY;
 		sp->status = FC_SEQ_SENDING;
 	}
 	else{
-		ep = lps->exchPointer;
+		ep = lps->exchPointer[exchNum];
 		sp = fc_seq_alloc(ep);
 		ep->seqid++;
 		ep->seq = sp;
@@ -29,9 +28,10 @@ UINT32 fc_exch_send(struct fc_exch_snd_data *data, LocalPortStatus * lps)//ÕâÀï´
 		sp->status = FC_SEQ_SENDING;
 	}
 	fc_seq_send(sp, data);
-}
+	fc_seq_free(sp);
+}//ExchµÄFreeÊÇÔÚº¯ÊıµÄÍâÃæÈ¥×öµÄ
 
-UINT32 fc_exch_init(LocalPortStatus * localPortStatus)
+UINT32 fc_port_init(LocalPortStatus * localPortStatus)
 {
 	LocalPortStatus *lpStatus = localPortStatus;
 	lpStatus->exchPointer = exchangesPort0;
@@ -65,7 +65,7 @@ void fc_exch_alloc(struct fcExch * ep, LocalPortStatus * lps)
 static struct fcSeq * fc_seq_alloc(struct fcExch * ep)
 {
 	struct fcSeq * sp = (seqNum == 100) ? &fcSequence[(seqNum++) % 100] : &fcSequence[seqNum++];
-	while (sp->status != FC_SEQ_FREE){
+	while (sp->status != FC_SEQ_FREE){	//¿¼ÂÇÒ»ÏÂfreeµôsequenceÔõÃ´´¦Àí
 		struct fcSeq * sp = (seqNum == 100) ? &fcSequence[(seqNum++) % 100] : &fcSequence[seqNum++];
 	}
 	sp->seqid = ep->seqid;
@@ -77,17 +77,26 @@ static struct fcSeq * fc_seq_alloc(struct fcExch * ep)
 UINT32 fc_seq_send(fcSeq * seqPointer, struct fc_exch_snd_data *data)
 {
 	while (data->len > FC_MAX_LEN){
-		seqPointer->status = FC_SEQ_SENDING;
+		seqPointer->fStatus = FC_FRAME_SENDING;
 		data->len -= FC_MAX_LEN;//µ÷ÓÃµÈÊ±ºòÓ¦¸Ã¸øÕâ¸ö
 		seqPointer->seq_cnt++;
 		fc_frame_send(seqPointer, data->configPointer);
 	}
 	if (data->len > 0){
-		seqPointer->status = FC_SEQ_FREE;
+		seqPointer->fStatus = FC_FRAME_LAST;
 		seqPointer->seq_cnt++;
 		fc_frame_send(seqPointer, data->configPointer);
 	}
-	seqPointer->status = FC_SEQ_FREE;
+	//seqPointer->status = FC_SEQ_FREE;  ÔÚÕâÀïÊÍ·Å¶Ô²»¶Ô£¿
+}
+
+void fc_seq_free(fcSeq * sp)
+{
+	sp->seqid = ZERO;
+	sp->seq_cnt = ZERO;
+	sp->exchangePointer = nullptr;
+	sp->status = FC_SEQ_FREE;
+	sp->fStatus = FC_FRAME_LAST;
 }
 
 
@@ -105,9 +114,15 @@ void fc_frame_send(fcSeq * seqPointer, void * configPointer)
 		fc1553Config->rx_id = seqPointer->exchangePointer->rxid;
 		fc1553Config->seq_id = seqPointer->exchangePointer->seqid;
 		fc1553Config->seq_cnt = seqPointer->seq_cnt;
-		fc1553Config->payloadlen = FC_MAX_LEN;//Ã¿¸öÖ¡Ö»·¢ÕâÃ´³¤µÄÊı¾İ
-		Send1553(hDevice1, *fc1553Config);
-		fc1553Config->addr += FC_MAX_LEN;//·¢ÍêÖ®ºó¸ü¸ÄÒ»ÏÂÆ«ÒÆµØÖ·¡£
+		if (seqPointer->fStatus == FC_FRAME_SENDING){
+			fc1553Config->payloadlen = FC_MAX_LEN;//Ã¿¸öÖ¡Ö»·¢ÕâÃ´³¤µÄÊı¾İ
+			Send1553(hDevice1, *fc1553Config);
+			fc1553Config->addr += FC_MAX_LEN;//·¢ÍêÖ®ºó¸ü¸ÄÒ»ÏÂÆ«ÒÆµØÖ·¡£
+		}
+		else{
+			Send1553(hDevice1, *fc1553Config);
+		}
+		
 	}
 	else if{
 

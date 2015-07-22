@@ -1,5 +1,8 @@
 #include <iostream>
-#include "FC_2.h"
+#include "fc_1553.h"
+
+//发送端不做切割，但是接收端应该做帧额度重新组装，切割在驱动部分完成
+
 fcExch tmpExch;
 fcSeq tmpSeq;
 UINT32 fc_exch_recv(UINT8 * status, UINT32 * delay, UINT32 * buf_offset, UINT32 * len, LocalPortStatus * lps)
@@ -13,11 +16,11 @@ UINT32 fc_exch_recv(UINT8 * status, UINT32 * delay, UINT32 * buf_offset, UINT32 
 	fc_seq_recv(status, delay, buf_offset, len, tmpEp);
 	//totalLenth += *len;
 	/*while ((tmpEp->seq->status == FC_SEQ_SENDING)){
-		fc_seq_recv(status, delay, buf_offset, len, tmpEp);
-		totalLenth += *len;
+	fc_seq_recv(status, delay, buf_offset, len, tmpEp);
+	totalLenth += *len;
 	}*/
 	//*len = totalLenth;
-	unsigned char* ptr = ptrdata1 + buf_offset;
+	unsigned char* ptr = ptrdata1 + *buf_offset;
 	tmpEp->oxid = *((UINT16 *)(ptr + 16));
 	tmpEp->rxid = *((UINT16 *)(ptr + 18));//下面如果不是0xFFFF的话就是第一次，应该寻找并且分配一个rxid
 	if (tmpEp->rxid == XID_UNKNOWN){
@@ -31,16 +34,24 @@ UINT32 fc_exch_recv(UINT8 * status, UINT32 * delay, UINT32 * buf_offset, UINT32 
 	tmpEp->seq = nullptr;
 	tmpEp->status = FC_EXCH_BUSY;
 	*port[1].exchPointer = *tmpEp;
-//	port[1].status = PORT_RDY;
+	//	port[1].status = PORT_RDY;
 	port[1].newExchange = EXCH_OLD;
 	return 0;
+}
+
+
+UINT32 fc_ae_1553_mode_recv(UINT8 * status, UINT32 * delay, UINT32 * buf_offset, UINT32 * len, LocalPortStatus * lps)
+{
+	fcExch * ep = &tmpExch;
+	//fcSeq * sp = &tmpSeq;
+	fc_seq_recv(status, delay, buf_offset, len, ep);
 }
 
 UINT32 fc_seq_recv(UINT8 * status, UINT32 * delay, UINT32 * buf_offset, UINT32 * len, fcExch * ep)
 {
 	fcSeq * sp = &tmpSeq;	 //这个当发送完成之后应该记得要去释放他。
-	unsigned char* ptr = ptrdata1 + buf_offset;
 	fc_frame_recv(status, delay, buf_offset, len, sp);
+	unsigned char* ptr = ptrdata1 + *buf_offset;
 	ep->seq = sp;
 	sp->exchangePointer = ep;
 	return 0;
@@ -49,11 +60,12 @@ UINT32 fc_seq_recv(UINT8 * status, UINT32 * delay, UINT32 * buf_offset, UINT32 *
 UINT32 fc_frame_recv(UINT8 * status, UINT32 * delay, UINT32 * buf_offset, UINT32 * len, fcSeq * sp)
 {
 	get_current_rx_status(status, delay, buf_offset, len);
-	unsigned char* ptr = ptrdata1 + buf_offset;
+	unsigned char* ptr = ptrdata1 + *buf_offset;
 	sp->seq_cnt = (UINT16)(ptr + 14);
 	sp->seqid = (UINT8)(ptr + 12);
 	sp->status = FC_SEQ_SENDING;
-	sp->exchangePointer = nullptr;
+	sp->seqPos = FIRST_SEQ;
+	sp->fStatus = FC_FRAME_LAST;
 }
 
 int get_current_rx_status(unsigned char *status, unsigned int *delay, unsigned int *buf_offset, unsigned int *len)
